@@ -1,0 +1,148 @@
+name: Daily Price Update & Deploy
+
+# Runs daily at 7:00 PM UTC (= 1:00 AM Bangladesh Time BDT, UTC+6)
+on:
+  schedule:
+    - cron: '0 19 * * *'
+  workflow_dispatch:  # Allow manual trigger from GitHub UI
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  update-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      # --------------------------------------------------
+      # 1. Checkout repository (with full history for data)
+      # --------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # --------------------------------------------------
+      # 2. Setup Python
+      # --------------------------------------------------
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # --------------------------------------------------
+      # 3. Cache pip packages
+      # --------------------------------------------------
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      # --------------------------------------------------
+      # 4. Install dependencies
+      # --------------------------------------------------
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # --------------------------------------------------
+      # 5. Check current data status
+      # --------------------------------------------------
+      - name: Check data status
+        run: |
+          echo "=== Current Data Status ==="
+          if ls data/raw_daily/*.csv 1>/dev/null 2>&1; then
+            LATEST_CSV=$(ls data/raw_daily/*.csv | sort | tail -1)
+            LATEST_DATE=$(basename "$LATEST_CSV" .csv)
+            echo "Latest data: $LATEST_DATE"
+            TOTAL_FILES=$(ls data/raw_daily/*.csv | wc -l)
+            echo "Total daily files: $TOTAL_FILES"
+          else
+            echo "No existing data found — will do full scrape"
+          fi
+          echo "Today (UTC): $(date +%Y-%m-%d)"
+
+      # --------------------------------------------------
+      # 6. Run full pipeline: scrape → process → train → dashboard
+      # --------------------------------------------------
+      - name: Run auto-update pipeline
+        run: |
+          echo "=== Running Next Bazar auto-update pipeline ==="
+          python auto_update.py --force-retrain
+        continue-on-error: true
+
+      # --------------------------------------------------
+      # 7. Verify dashboard was generated
+      # --------------------------------------------------
+      - name: Verify outputs
+        run: |
+          echo "=== Checking outputs ==="
+          if [ -f dashboard_data.js ]; then
+            SIZE=$(du -h dashboard_data.js | cut -f1)
+            echo "dashboard_data.js: $SIZE"
+          else
+            echo "WARNING: dashboard_data.js not found!"
+          fi
+          if [ -f dashboard.html ]; then
+            echo "dashboard.html: OK"
+          else
+            echo "WARNING: dashboard.html not found!"
+          fi
+          if [ -f outputs/forecasts.csv ]; then
+            ROWS=$(wc -l < outputs/forecasts.csv)
+            echo "forecasts.csv: $ROWS rows"
+          fi
+
+      # --------------------------------------------------
+      # 8. Commit updated data + dashboard back to repo
+      # --------------------------------------------------
+      - name: Commit changes
+        run: |
+          git config user.name "Next Bazar Bot"
+          git config user.email "actions@github.com"
+
+          # Stage data files and dashboard
+          git add data/raw_daily/ data/all_prices_raw.csv data/all_prices_clean.csv
+          git add dashboard_data.js dashboard.html
+          git add update_state.json
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            TODAY=$(TZ='Asia/Dhaka' date +%Y-%m-%d)
+            NEW_FILES=$(git diff --staged --name-only | grep "data/raw_daily/" | wc -l)
+            git commit -m "Auto-update: $TODAY (+${NEW_FILES} new data files)
+
+          Automated daily pipeline:
+          - Scraped new prices from tcb.gov.bd
+          - Retrained XGBoost/LightGBM models
+          - Regenerated dashboard predictions"
+
+            git push
+            echo "Changes committed and pushed"
+          fi
+
+      # --------------------------------------------------
+      # 9. Deploy dashboard to GitHub Pages
+      # --------------------------------------------------
+      - name: Prepare deploy folder
+        run: |
+          mkdir -p deploy
+          cp dashboard.html deploy/index.html
+          cp dashboard_data.js deploy/dashboard_data.js
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./deploy
+          publish_branch: gh-pages
+          force_orphan: true
+          commit_message: "Deploy dashboard - $(TZ='Asia/Dhaka' date +%Y-%m-%d)"
