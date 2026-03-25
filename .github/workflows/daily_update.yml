@@ -145,4 +145,6 @@ jobs:
           publish_dir: ./deploy
           publish_branch: gh-pages
           force_orphan: true
+          user_name: 'Next Bazar Bot'
+          user_email: 'actions@github.com'
           commit_message: "Deploy dashboard - $(TZ='Asia/Dhaka' date +%Y-%m-%d)"
