@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Next Bazar — Price Prediction Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0b1120;--bg2:#111827;--bg3:#1e293b;--bg4:#283548;
+  --border:#334155;--text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
+  --gold:#fbbf24;--cyan:#22d3ee;--green:#22c55e;--red:#f87171;
+  --blue:#60a5fa;--purple:#a78bfa;
+}
+html{font-size:14px}
+body{font-family:'Inter','Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px}
+.header{background:rgba(17,24,39,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.logo{font-size:1.4rem;font-weight:800;background:linear-gradient(90deg,#fbbf24,#f59e0b);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text3);font-size:.82rem;margin-left:10px}
+.main{padding:14px 20px;display:flex;flex-direction:column;gap:14px}
+
+/* Controls */
+.controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.ctrl-group{display:flex;align-items:center;gap:4px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:3px}
+.ctrl-btn{padding:6px 14px;border:none;border-radius:6px;cursor:pointer;font-size:.78rem;font-weight:600;background:transparent;color:var(--text2);transition:all .15s}
+.ctrl-btn:hover{background:var(--bg4);color:var(--text)}
+.ctrl-btn.active{background:var(--gold);color:#0f172a}
+.ctrl-btn.overlay-active{background:var(--purple);color:#fff}
+.nav-btn{width:32px;height:32px;border:none;border-radius:6px;cursor:pointer;font-size:1.1rem;font-weight:700;background:var(--bg3);color:var(--text2);display:flex;align-items:center;justify-content:center;transition:all .15s}
+.nav-btn:hover{background:var(--bg4);color:var(--text)}
+.period-label{min-width:130px;text-align:center;font-weight:600;color:var(--purple);font-size:.9rem}
+.nav-group{display:flex;align-items:center;gap:6px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:4px 8px}
+select.product-select{padding:8px 12px;border-radius:8px;background:var(--bg);color:var(--text);border:1px solid var(--border);font-size:.9rem;font-weight:500;max-width:340px;min-width:200px;outline:none;cursor:pointer}
+.chk-label{display:flex;align-items:center;gap:5px;font-size:.78rem;color:var(--text2);cursor:pointer;white-space:nowrap}
+.chk-label input{accent-color:var(--cyan)}
+
+/* Price Cards */
+.cards{display:flex;gap:12px;flex-wrap:wrap}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 18px;flex:1;min-width:160px}
+.card-title{font-size:.7rem;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;font-weight:600}
+.card-price{font-size:1.8rem;font-weight:800;margin-top:2px}
+.card-change{font-size:.85rem;font-weight:600;margin-top:1px}
+.up{color:var(--green)}.down{color:var(--red)}.neutral{color:var(--text2)}
+
+/* Chart */
+.chart-box{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.chart-header{padding:10px 16px;border-bottom:1px solid rgba(51,65,85,.5);display:flex;align-items:baseline;gap:8px}
+.chart-title{font-size:1.1rem;font-weight:700}
+.chart-subtitle{font-size:.82rem;color:var(--text3)}
+.chart-wrap{padding:8px 12px 4px;position:relative;height:420px;cursor:grab}
+.chart-wrap:active{cursor:grabbing}
+.reset-zoom{position:absolute;top:12px;right:16px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--text2);font-size:.72rem;cursor:pointer;z-index:5;transition:all .15s}
+.reset-zoom:hover{background:var(--bg4);color:var(--text)}
+.year-legend{display:flex;gap:12px;padding:4px 16px 10px;flex-wrap:wrap}
+.year-legend-item{display:flex;align-items:center;gap:4px;font-size:.75rem;color:var(--text2)}
+.year-legend-swatch{width:20px;height:3px;border-radius:2px}
+
+/* Table */
+.table-box{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.table-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.table-title{font-size:1rem;font-weight:700}
+.search-input{padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:.82rem;width:200px;outline:none}
+.tbl-wrap{overflow-x:auto;max-height:500px;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+thead th{padding:8px 10px;text-align:left;color:var(--text2);font-weight:600;font-size:.7rem;text-transform:uppercase;letter-spacing:.4px;background:var(--bg3);position:sticky;top:0;z-index:2;white-space:nowrap}
+tbody td{padding:8px 10px;white-space:nowrap;border-bottom:1px solid rgba(51,65,85,.3)}
+tbody tr{cursor:pointer;transition:background .1s}
+tbody tr:hover{background:rgba(100,116,139,.08)}
+tbody tr.selected{background:rgba(251,191,36,.07)}
+tbody tr.selected td:first-child{border-left:3px solid var(--gold)}
+.prod-name{font-weight:600}.prod-bn{font-size:.72rem;color:var(--text3)}
+.sticky-col{position:sticky;left:0;z-index:1;background:var(--bg2)}
+.selected .sticky-col{background:rgba(251,191,36,.1)}
+
+.footer{text-align:center;padding:10px 0 18px;color:var(--text3);font-size:.72rem}
+
+@media(max-width:768px){
+  .controls{flex-direction:column;align-items:stretch}
+  select.product-select{max-width:100%;min-width:100%}
+  .cards{flex-direction:column}
+  .chart-wrap{height:300px}
+}
+</style>
+<!-- Load real data if available (generated by generate_dashboard_data.py) -->
+<script src="dashboard_data.js" onerror="window.REAL_DATA_LOADED=false"></script>
+</head>
+<body>
+
+<div class="header">
+  <div style="display:flex;align-items:center">
+    <span class="logo">Next Bazar</span>
+    <span class="subtitle">Price Prediction Dashboard</span>
+  </div>
+  <div id="liveDateTime" style="font-size:.85rem;font-weight:600;color:var(--cyan);text-align:center;line-height:1.3"></div>
+  <div style="font-size:.75rem;color:var(--text3)">Last Updated: May 04, 2026</div>
+</div>
+
+<div class="main">
+  <!-- Controls -->
+  <div class="controls">
+    <select class="product-select" id="productSelect"></select>
+
+    <div class="ctrl-group" id="periodBtns">
+      <button class="ctrl-btn" data-period="1M">1M</button>
+      <button class="ctrl-btn" data-period="3M">3M</button>
+      <button class="ctrl-btn" data-period="6M">6M</button>
+      <button class="ctrl-btn" data-period="1Y">1Y</button>
+      <button class="ctrl-btn" data-period="ALL">All</button>
+    </div>
+
+    <div class="ctrl-group">
+      <button class="ctrl-btn" id="overlayBtn">Overlay</button>
+    </div>
+
+    <div class="nav-group" id="navGroup" style="display:none">
+      <button class="nav-btn" id="navLeft">&#9664;</button>
+      <span class="period-label" id="periodLabel">March</span>
+      <button class="nav-btn" id="navRight">&#9654;</button>
+    </div>
+
+    <div style="flex:1"></div>
+
+    <label class="chk-label"><input type="checkbox" id="chkPred" checked> Predictions</label>
+    <label class="chk-label"><input type="checkbox" id="chkRange" checked> Min/Max</label>
+  </div>
+
+  <!-- Price Cards -->
+  <div class="cards">
+    <div class="card">
+      <div class="card-title">Current Price (Avg)</div>
+      <div class="card-price" id="cardPrice" style="color:var(--gold)">৳0</div>
+      <div class="card-change" id="cardChange">—</div>
+    </div>
+    <div class="card">
+      <div class="card-title">7-Day Forecast</div>
+      <div class="card-price" id="card7d" style="color:var(--cyan)">৳0</div>
+      <div class="card-change" id="card7dChange">—</div>
+    </div>
+    <div class="card">
+      <div class="card-title">90-Day Forecast</div>
+      <div class="card-price" id="card90d" style="color:var(--green)">৳0</div>
+      <div class="card-change" id="card90dChange">—</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Min / Max Today</div>
+      <div class="card-price" id="cardMinMax" style="color:var(--blue);font-size:1.3rem">—</div>
+      <div class="card-change neutral" id="cardSpread">—</div>
+    </div>
+  </div>
+
+  <!-- Chart -->
+  <div class="chart-box">
+    <div class="chart-header">
+      <span class="chart-title" id="chartTitle">Fine Rice</span>
+      <span class="chart-subtitle" id="chartSubtitle">চাল সরু — per kg</span>
+    </div>
+    <div class="chart-wrap">
+      <button class="reset-zoom" id="resetZoom" title="Double-click chart or click here">Reset Zoom</button>
+      <canvas id="mainChart"></canvas>
+    </div>
+    <div class="year-legend" id="yearLegend"></div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-box">
+    <div class="table-header">
+      <span class="table-title">All Products — Today + 7-Day Forecast</span>
+      <input type="text" class="search-input" id="searchInput" placeholder="Search products...">
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="min-width:180px;position:sticky;left:0;z-index:3;background:var(--bg3)">Product</th>
+            <th>Unit</th>
+            <th style="background:#1a2332">Today (৳)</th>
+            <th style="color:var(--cyan)">+1</th>
+            <th style="color:var(--cyan)">+2</th>
+            <th style="color:var(--cyan)">+3</th>
+            <th style="color:var(--cyan)">+4</th>
+            <th style="color:var(--cyan)">+5</th>
+            <th style="color:var(--cyan)">+6</th>
+            <th style="color:var(--cyan)">+7</th>
+            <th>7D Change</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="footer"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// LIVE DATE/TIME CLOCK
+// ═══════════════════════════════════════════════════════════════════
+(function(){
+  const el=document.getElementById('liveDateTime');
+  const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  // Clock-correction offset (ms): difference between internet UTC and device clock.
+  // 0 until first successful API fetch. Corrects inaccurate device clocks.
+  let clockCorrection=0;
+
+  function fetchInternetTime(){
+    fetch('https://worldtimeapi.org/api/timezone/Asia/Dhaka')
+      .then(r=>r.json())
+      .then(data=>{
+        // data.unixtime is accurate UTC epoch seconds from the server
+        const serverUTCms=data.unixtime*1000;
+        clockCorrection=serverUTCms-Date.now();
+      })
+      .catch(()=>{
+        // Fallback: try timeapi.io
+        fetch('https://timeapi.io/api/time/current/zone?timeZone=Asia/Dhaka')
+          .then(r=>r.json())
+          .then(data=>{
+            // data.dateTime is BDT: "2026-03-14T12:30:00.000"
+            // Convert to UTC by subtracting 6 hours, then compare to local clock
+            const bdtDate=new Date(data.dateTime);
+            const serverUTCms=bdtDate.getTime()-6*3600000;
+            clockCorrection=serverUTCms-Date.now();
+          })
+          .catch(()=>{
+            // Both APIs failed — no correction, use device clock as-is
+            clockCorrection=0;
+          });
+      });
+  }
+
+  function getBDTNow(){
+    // Step 1: Get accurate UTC milliseconds (device clock + correction from internet)
+    const accurateUTCms=Date.now()+clockCorrection;
+    // Step 2: Convert UTC → BDT display by shifting +6h and neutralizing local timezone
+    const d=new Date(accurateUTCms);
+    const bdtMs=accurateUTCms+(d.getTimezoneOffset()*60000)+(6*3600000);
+    return new Date(bdtMs);
+  }
+
+  function update(){
+    const bdt=getBDTNow();
+    const dayName=days[bdt.getDay()];
+    const month=months[bdt.getMonth()];
+    const date=bdt.getDate();
+    const year=bdt.getFullYear();
+    let h=bdt.getHours(),ampm=h>=12?'PM':'AM';
+    h=h%12||12;
+    const m=String(bdt.getMinutes()).padStart(2,'0');
+    const s=String(bdt.getSeconds()).padStart(2,'0');
+    el.textContent=dayName+', '+month+' '+date+', '+year+' — '+h+':'+m+':'+s+' '+ampm+' BDT';
+  }
+
+  // Fetch internet time on load, then refresh every 10 minutes to stay synced
+  fetchInternetTime();
+  setInterval(fetchInternetTime, 600000);
+
+  update();
+  setInterval(update,1000);
+})();
+
+// ═══════════════════════════════════════════════════════════════════
+// DATA — Use real data from dashboard_data.js if loaded, else sample
+// ═══════════════════════════════════════════════════════════════════
+if(!window.REAL_DATA_LOADED){
+// --- SAMPLE DATA (fallback when dashboard_data.js is not present) ---
+var COMMODITIES = [
+  {name:"চাল সরু (নাজির/মিনিকেট)",en:"Fine Rice (Nazir/Miniket)",unit:"per kg",base:72,vol:.03},
+  {name:"চাল (মোটা)/স্বর্ণা",en:"Coarse Rice",unit:"per kg",base:52,vol:.04},
+  {name:"আটা সাদা (খোলা)",en:"Flour (Loose)",unit:"per kg",base:42,vol:.05},
+  {name:"আটা (প্যাকেট)",en:"Flour (Packet)",unit:"per kg",base:55,vol:.04},
+  {name:"ময়দা (খোলা)",en:"Maida (Loose)",unit:"per kg",base:50,vol:.05},
+  {name:"সয়াবিন তেল (লুজ)",en:"Soybean Oil (Loose)",unit:"per L",base:165,vol:.04},
+  {name:"সয়াবিন তেল (বোতল)",en:"Soybean Oil (Bottle)",unit:"5L",base:920,vol:.03},
+  {name:"পাম অয়েল (লুজ)",en:"Palm Oil (Loose)",unit:"per L",base:145,vol:.05},
+  {name:"মশুর ডাল (বড়)",en:"Red Lentil (Large)",unit:"per kg",base:90,vol:.06},
+  {name:"মশুর ডাল (ছোট)",en:"Red Lentil (Small)",unit:"per kg",base:150,vol:.04},
+  {name:"মুগ ডাল",en:"Mung Dal",unit:"per kg",base:140,vol:.05},
+  {name:"ছোলা",en:"Chickpea",unit:"per kg",base:85,vol:.05},
+  {name:"আলু",en:"Potato",unit:"per kg",base:25,vol:.14},
+  {name:"পিঁয়াজ (দেশী)",en:"Onion (Local)",unit:"per kg",base:45,vol:.18},
+  {name:"রসুন (দেশী)",en:"Garlic (Local)",unit:"per kg",base:120,vol:.1},
+  {name:"রসুন (আমদানি)",en:"Garlic (Imported)",unit:"per kg",base:200,vol:.08},
+  {name:"শুকনা মরিচ (দেশী)",en:"Dry Chili (Local)",unit:"per kg",base:280,vol:.07},
+  {name:"হলুদ (দেশী)",en:"Turmeric (Local)",unit:"per kg",base:320,vol:.06},
+  {name:"আদা (দেশী)",en:"Ginger (Local)",unit:"per kg",base:160,vol:.12},
+  {name:"জিরা",en:"Cumin",unit:"per kg",base:650,vol:.05},
+  {name:"দারুচিনি",en:"Cinnamon",unit:"per kg",base:520,vol:.04},
+  {name:"চিনি",en:"Sugar",unit:"per kg",base:105,vol:.04},
+  {name:"লবণ",en:"Salt (Iodized)",unit:"per kg",base:40,vol:.02},
+  {name:"রুই মাছ",en:"Rohu Fish",unit:"per kg",base:350,vol:.08},
+  {name:"ইলিশ",en:"Hilsa Fish",unit:"per kg",base:1200,vol:.22},
+  {name:"গরুর মাংস",en:"Beef",unit:"per kg",base:750,vol:.03},
+  {name:"খাসীর মাংস",en:"Mutton",unit:"per kg",base:1100,vol:.03},
+  {name:"মুরগী (ব্রয়লার)",en:"Chicken (Broiler)",unit:"per kg",base:190,vol:.09},
+  {name:"মুরগী (দেশী)",en:"Chicken (Local)",unit:"per kg",base:580,vol:.04},
+  {name:"ডিম (ফার্ম)",en:"Egg (Farm)",unit:"per hali",base:38,vol:.07},
+  {name:"গুঁড়া দুধ (ডানো)",en:"Milk Powder (Dano)",unit:"1 kg",base:780,vol:.02},
+  {name:"কাঁচামরিচ",en:"Green Chili",unit:"per kg",base:100,vol:.28},
+  {name:"বেগুন",en:"Eggplant",unit:"per kg",base:60,vol:.22},
+  {name:"লেবু",en:"Lemon",unit:"per hali",base:50,vol:.22},
+  {name:"শসা",en:"Cucumber",unit:"per kg",base:55,vol:.2},
+  {name:"খেজুর",en:"Dates",unit:"per kg",base:400,vol:.08},
+  {name:"এম,এস রড (৬০)",en:"MS Rod (Grade 60)",unit:"per MT",base:82000,vol:.03},
+];
+} // end if(!window.REAL_DATA_LOADED) — sample data block
+
+// These constants are always needed regardless of data source
+var YEAR_COLORS = {
+  2018:'#6366f1',2019:'#818cf8',2020:'#a78bfa',
+  2021:'#c084fc',2022:'#e879f9',2023:'#f472b6',
+  2024:'#fb7185',2025:'#f97316',2026:'#eab308'
+};
+var PRED_COLOR = '#22c55e';
+if(!window.REAL_DATA_LOADED) var TODAY = new Date(2026,2,12);
+var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+var MONTHS_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+if(!window.REAL_DATA_LOADED){
+// Seeded pseudo-random for consistent data
+function seededRandom(seed){let s=seed;return function(){s=(s*16807+0)%2147483647;return(s-1)/2147483646}}
+
+function generateData(c, idx){
+  const rng = seededRandom(idx * 7919 + 42);
+  const hist = [], pred = [];
+  let price = c.base * (0.65 + rng()*0.25);
+  const trend = 0.00012 + rng()*0.00008;
+
+  for(let y=2018;y<=2026;y++){
+    const startM = y===2018?7:0;
+    const endM = y===2026?2:11;
+    for(let m=startM;m<=endM;m++){
+      const days = new Date(y,m+1,0).getDate();
+      for(let d=1;d<=days;d++){
+        const dt = new Date(y,m,d);
+        if(dt>TODAY) break;
+        if(dt.getDay()===5) continue;
+        const doy = Math.floor((dt-new Date(y,0,0))/864e5);
+        const seasonal = Math.sin(doy/365*2*Math.PI)*c.vol*c.base*0.25;
+        const ramadan = (m>=2&&m<=4)?c.base*0.04:0;
+        const noise = (rng()-0.5)*c.vol*c.base*0.4;
+        price = price*(1+trend) + seasonal*0.008 + ramadan*0.003 + noise*0.25;
+        price = Math.max(c.base*0.4, Math.min(price, c.base*3.2));
+        const spread = price*(0.08+rng()*0.14);
+        const mn = Math.round(price-spread/2);
+        const mx = Math.round(price+spread/2);
+        hist.push({
+          date: `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`,
+          year:y, month:m, day:d,
+          min:mn, max:mx, avg:Math.round((mn+mx)/2),
+          isPred:false
+        });
+      }
+    }
+  }
+  // Predictions: 90 days
+  let pp = hist.length?hist[hist.length-1].avg:c.base;
+  const pTrend = (rng()-0.4)*0.002;
+  for(let i=1;i<=90;i++){
+    const dt=new Date(TODAY);dt.setDate(dt.getDate()+i);
+    if(dt.getDay()===5) continue;
+    const n=(rng()-0.5)*c.vol*c.base*0.12;
+    pp=pp*(1+pTrend)+n;
+    pp=Math.max(c.base*0.3,pp);
+    const sp=pp*(0.06+rng()*0.1);
+    pred.push({
+      date:`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`,
+      year:dt.getFullYear(),month:dt.getMonth(),day:dt.getDate(),
+      min:Math.round(pp-sp/2),max:Math.round(pp+sp/2),avg:Math.round(pp),
+      isPred:true
+    });
+  }
+  return {hist, pred};
+}
+
+var DATA = {};
+COMMODITIES.forEach((c,i)=>{DATA[c.name]=generateData(c,i)});
+} // end if(!window.REAL_DATA_LOADED)
+
+// If real data loaded, update TODAY and Last Updated from data
+if(window.REAL_DATA_LOADED && window.DATA_LAST_UPDATED){
+  document.querySelector('.header div:last-child').textContent = 'Last Updated: ' + DATA_LAST_UPDATED;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════
+let selectedProduct = COMMODITIES[0].name;
+let currentPeriod = '1M';
+let overlayOn = false;
+let periodIndex = TODAY.getMonth();  // 0-11 for 1M
+let showPred = true;
+let showRange = true;
+let chart = null;
+
+// ═══════════════════════════════════════════════════════════════════
+// PERIOD HELPERS
+// ═══════════════════════════════════════════════════════════════════
+function getPeriodConfig(p){
+  switch(p){
+    case '1M': return {months:1,label:'1 Month'};
+    case '3M': return {months:3,label:'3 Months'};
+    case '6M': return {months:6,label:'6 Months'};
+    case '1Y': return {months:12,label:'1 Year'};
+    default:   return {months:120,label:'All Time'};
+  }
+}
+
+function getPeriodStartEnd(p, idx){
+  // Returns {startM, endM} — the month range for overlay mode
+  if(p==='1M'){
+    return {startM:idx, endM:idx};
+  }
+  if(p==='3M'){
+    const s=idx*3;
+    return {startM:s, endM:s+2};
+  }
+  if(p==='6M'){
+    const s=idx*6;
+    return {startM:s, endM:s+5};
+  }
+  // 1Y
+  return {startM:0, endM:11};
+}
+
+function getPeriodName(p, idx){
+  if(p==='1M') return MONTHS_FULL[idx];
+  if(p==='3M'){
+    const s=idx*3;
+    return MONTHS[s]+' - '+MONTHS[Math.min(s+2,11)];
+  }
+  if(p==='6M'){
+    const s=idx*6;
+    return MONTHS[s]+' - '+MONTHS[Math.min(s+5,11)];
+  }
+  if(p==='1Y') return 'Full Year';
+  return 'All Time';
+}
+
+function getMaxPeriodIndex(p){
+  if(p==='1M') return 11;
+  if(p==='3M') return 3;
+  if(p==='6M') return 1;
+  return 0;
+}
+
+function filterByPeriod(data, year, period, idx){
+  const{startM,endM}=getPeriodStartEnd(period,idx);
+  return data.filter(d=>{
+    if(d.year!==year) return false;
+    const m=d.month; // 0-indexed
+    if(startM<=endM) return m>=startM && m<=endM;
+    return m>=startM || m<=endM; // wrap around (shouldn't happen normally)
+  });
+}
+
+function dayOffset(d, p, idx){
+  const{startM}=getPeriodStartEnd(p,idx);
+  const ref=new Date(d.year,startM,1);
+  const cur=new Date(d.date);
+  return Math.floor((cur-ref)/864e5);
+}
+
+function formatOverlayLabel(dayOff, p, idx){
+  const{startM}=getPeriodStartEnd(p,idx);
+  if(p==='1M'){
+    return String(dayOff+1);
+  }
+  if(p==='3M'){
+    const dt=new Date(2024,startM,1);
+    dt.setDate(dt.getDate()+dayOff);
+    return MONTHS[dt.getMonth()]+' '+dt.getDate();
+  }
+  if(p==='6M'){
+    const dt=new Date(2024,startM,1);
+    dt.setDate(dt.getDate()+dayOff);
+    return MONTHS[dt.getMonth()]+' '+dt.getDate();
+  }
+  if(p==='1Y'){
+    const dt=new Date(2024,0,1);
+    dt.setDate(dt.getDate()+dayOff);
+    return MONTHS[dt.getMonth()];
+  }
+  return String(dayOff);
+}
+
+function changeStr(val,ref){
+  if(!ref||!val) return '—';
+  const d=val-ref;const pct=ref?((d/ref)*100).toFixed(1):0;
+  const sign=d>=0?'+':'';
+  return `${sign}${Math.round(d)} (${sign}${pct}%)`;
+}
+
+function changeClass(val,ref){
+  if(!ref||!val) return 'neutral';
+  return val>ref?'up':val<ref?'down':'neutral';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CHART RENDERING
+// ═══════════════════════════════════════════════════════════════════
+function renderChart(){
+  const canvas = document.getElementById('mainChart');
+  const ctx = canvas.getContext('2d');
+  if(chart){chart.destroy();chart=null;}
+
+  const c = COMMODITIES.find(x=>x.name===selectedProduct)||COMMODITIES[0];
+  const{hist,pred}=DATA[selectedProduct];
+
+  document.getElementById('chartTitle').textContent=c.en;
+  document.getElementById('chartSubtitle').textContent=c.name+' — '+c.unit;
+
+  if(overlayOn && currentPeriod!=='ALL'){
+    renderOverlayChart(ctx,c,hist,pred);
+  } else {
+    renderNormalChart(ctx,c,hist,pred);
+  }
+  updateCards(c,hist,pred);
+}
+
+function renderNormalChart(ctx,c,hist,pred){
+  document.getElementById('yearLegend').innerHTML='';
+
+  // Always load ALL data — use scale min/max to control visible window (enables panning)
+  let all = [...hist];
+  if(showPred) all = all.concat(pred);
+
+  // Calculate visible window indices
+  let visibleMin = 0;
+  let visibleMax = all.length - 1;
+  if(currentPeriod!=='ALL'){
+    const cfg=getPeriodConfig(currentPeriod);
+    const days=cfg.months*31;
+    const cutoff=new Date(TODAY);cutoff.setDate(cutoff.getDate()-days);
+    const cutStr=cutoff.toISOString().slice(0,10);
+    visibleMin = all.findIndex(d=>d.date>=cutStr);
+    if(visibleMin<0) visibleMin=0;
+  }
+
+  const labels=all.map(d=>d.date);
+  const datasets=[];
+
+  // Min/Max area
+  if(showRange){
+    datasets.push({
+      label:'Max',data:all.map(d=>d.max),
+      borderColor:'rgba(248,113,113,0.35)',borderWidth:1,borderDash:[3,3],
+      pointRadius:0,fill:false,order:3
+    });
+    datasets.push({
+      label:'Min',data:all.map(d=>d.min),
+      borderColor:'rgba(96,165,250,0.35)',borderWidth:1,borderDash:[3,3],
+      pointRadius:0,fill:'-1',
+      backgroundColor:'rgba(139,92,246,0.06)',order:3
+    });
+  }
+
+  // Split hist and pred for coloring
+  const histAvg=all.map(d=>d.isPred?null:d.avg);
+  const predAvg=all.map(d=>d.isPred?d.avg:null);
+
+  // Bridge: last hist point + first pred point for continuity
+  if(showPred && pred.length>0){
+    const lastHistIdx=all.findIndex(d=>d.isPred)-1;
+    if(lastHistIdx>=0 && lastHistIdx+1<all.length){
+      predAvg[lastHistIdx]=all[lastHistIdx].avg;
+    }
+  }
+
+  datasets.push({
+    label:'Price (Avg)',data:histAvg,
+    borderColor:'#fbbf24',borderWidth:2,
+    pointRadius:0,pointHoverRadius:4,
+    fill:false,spanGaps:false,order:1
+  });
+
+  if(showPred){
+    datasets.push({
+      label:'Predicted',data:predAvg,
+      borderColor:PRED_COLOR,borderWidth:2,borderDash:[6,3],
+      pointRadius:0,pointHoverRadius:4,
+      fill:false,spanGaps:false,order:1,
+      backgroundColor:'rgba(34,197,94,0.08)'
+    });
+  }
+
+  chart=new Chart(ctx,{
+    type:'line',
+    data:{labels,datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'#1e293b',borderColor:'#334155',borderWidth:1,
+          titleColor:'#94a3b8',bodyColor:'#e2e8f0',
+          padding:10,cornerRadius:8,
+          caretPadding:20,caretSize:6,
+          position:'nearest',
+          callbacks:{
+            title:items=>{
+              const i=items[0]?.dataIndex;
+              if(i==null) return '';
+              const d=all[i];
+              return d.date+(d.isPred?' (Predicted)':'');
+            },
+            label:item=>{
+              const i=item.dataIndex;
+              const d=all[i];
+              if(item.dataset.label==='Price (Avg)' && d && !d.isPred) return `Avg: ৳${d.avg}`;
+              if(item.dataset.label==='Predicted' && d && d.isPred) return `Predicted: ৳${d.avg}`;
+              if(item.dataset.label==='Max' && d) return `Max: ৳${d.max}`;
+              if(item.dataset.label==='Min' && d) return `Min: ৳${d.min}`;
+              return null;
+            }
+          }
+        }
+      },
+      scales:{
+        x:{
+          min:visibleMin,
+          max:visibleMax,
+          ticks:{color:'#475569',maxTicksLimit:currentPeriod==='1M'?31:currentPeriod==='3M'?15:12,maxRotation:0,
+            callback:function(val,i){
+              const l=this.getLabelForValue(val);
+              if(!l)return'';
+              const p=l.split('-');
+              const m=parseInt(p[1])-1;
+              const d=parseInt(p[2]);
+              if(currentPeriod==='1M') return MONTHS[m]+' '+d;
+              if(currentPeriod==='3M') return MONTHS[m]+' '+d;
+              return MONTHS[m]+' '+p[0].slice(2);
+            }
+          },
+          grid:{color:'rgba(51,65,85,0.3)'}
+        },
+        y:{
+          ticks:{color:'#475569',callback:v=>'৳'+v.toLocaleString()},
+          grid:{color:'rgba(51,65,85,0.3)'}
+        }
+      },
+      plugins:{
+        zoom:{
+          limits:{
+            x:{min:0,max:all.length-1,minRange:5},
+          },
+          pan:{
+            enabled:true,
+            mode:'x',
+            threshold:2,
+          },
+          zoom:{
+            wheel:{enabled:true,speed:0.08},
+            pinch:{enabled:true},
+            mode:'x',
+          }
+        }
+      },
+      animation:{duration:400}
+    }
+  });
+}
+
+function renderOverlayChart(ctx,c,hist,pred){
+  const years=[...new Set(hist.map(d=>d.year))].sort();
+  const datasets=[];
+  let allDayOffsets=new Set();
+
+  // Collect all day offsets across years
+  years.forEach(yr=>{
+    const filtered=filterByPeriod(hist,yr,currentPeriod,periodIndex);
+    filtered.forEach(d=>{
+      allDayOffsets.add(dayOffset(d,currentPeriod,periodIndex));
+    });
+  });
+
+  // Predictions in the current period for 2026
+  const predInPeriod=filterByPeriod(pred,2026,currentPeriod,periodIndex);
+  // Also check 2027 for predictions that spill over
+  const predInPeriod2=filterByPeriod(pred,2027,currentPeriod,periodIndex);
+  const allPredInPeriod=[...predInPeriod,...predInPeriod2];
+  allPredInPeriod.forEach(d=>{
+    allDayOffsets.add(dayOffset(d,currentPeriod,periodIndex));
+  });
+
+  const sortedOffsets=[...allDayOffsets].sort((a,b)=>a-b);
+  const labels=sortedOffsets.map(off=>formatOverlayLabel(off,currentPeriod,periodIndex));
+  const offsetToIdx={};
+  sortedOffsets.forEach((off,i)=>offsetToIdx[off]=i);
+
+  // Prediction line first (so it appears at top of tooltip)
+  let hasPred=false;
+  if(showPred && allPredInPeriod.length>0){
+    const data=new Array(sortedOffsets.length).fill(null);
+    // Bridge: connect last 2026 hist to first pred
+    const hist2026=filterByPeriod(hist,2026,currentPeriod,periodIndex);
+    if(hist2026.length>0){
+      const lastH=hist2026[hist2026.length-1];
+      const lastOff=dayOffset(lastH,currentPeriod,periodIndex);
+      const li=offsetToIdx[lastOff];
+      if(li!=null) data[li]=lastH.avg;
+    }
+    allPredInPeriod.forEach(d=>{
+      const off=dayOffset(d,currentPeriod,periodIndex);
+      const i=offsetToIdx[off];
+      if(i!=null) data[i]=d.avg;
+    });
+    datasets.push({
+      label:'Predicted',
+      data,
+      borderColor:PRED_COLOR,
+      borderWidth:2.5,
+      borderDash:[6,3],
+      pointRadius:0,pointHoverRadius:3,
+      fill:false,spanGaps:true,
+      order:0
+    });
+    hasPred=true;
+  }
+
+  // One line per year — reverse order (newest first) so tooltip reads top-down
+  const yearsDesc=[...years].reverse();
+  yearsDesc.forEach(yr=>{
+    const filtered=filterByPeriod(hist,yr,currentPeriod,periodIndex);
+    if(!filtered.length) return;
+    const data=new Array(sortedOffsets.length).fill(null);
+    filtered.forEach(d=>{
+      const off=dayOffset(d,currentPeriod,periodIndex);
+      const i=offsetToIdx[off];
+      if(i!=null) data[i]=d.avg;
+    });
+    datasets.push({
+      label:String(yr),
+      data,
+      borderColor:YEAR_COLORS[yr]||'#94a3b8',
+      borderWidth:yr===2026?2.5:1.5,
+      pointRadius:0,pointHoverRadius:3,
+      fill:false,spanGaps:true,
+      order:yr===2026?1:2
+    });
+  });
+
+  // Year legend — same order: Predicted first, then newest year to oldest
+  const legend=document.getElementById('yearLegend');
+  legend.innerHTML='';
+  if(hasPred){
+    const el=document.createElement('div');
+    el.className='year-legend-item';
+    el.innerHTML=`<div class="year-legend-swatch" style="background:${PRED_COLOR}"></div>Predicted`;
+    legend.appendChild(el);
+  }
+  yearsDesc.forEach(yr=>{
+    const el=document.createElement('div');
+    el.className='year-legend-item';
+    el.innerHTML=`<div class="year-legend-swatch" style="background:${YEAR_COLORS[yr]||'#94a3b8'}"></div>${yr}`;
+    legend.appendChild(el);
+  });
+
+  chart=new Chart(ctx,{
+    type:'line',
+    data:{labels,datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'#1e293b',borderColor:'#334155',borderWidth:1,
+          titleColor:'#94a3b8',bodyColor:'#e2e8f0',
+          padding:10,cornerRadius:8,
+          caretPadding:20,caretSize:6,
+          position:'nearest',
+          callbacks:{
+            title:items=>{
+              const i=items[0]?.dataIndex;
+              return i!=null?labels[i]:'';
+            },
+            label:item=>`${item.dataset.label}: ৳${item.parsed.y!=null?item.parsed.y.toLocaleString():'—'}`
+          }
+        }
+      },
+      scales:{
+        x:{
+          ticks:{
+            color:'#475569',
+            maxTicksLimit: currentPeriod==='1M'?31:currentPeriod==='3M'?15:12,
+            maxRotation:0,
+            font:{size:11}
+          },
+          grid:{color:'rgba(51,65,85,0.3)'},
+          title:{
+            display:true,
+            text:getPeriodName(currentPeriod,periodIndex),
+            color:'var(--purple)',font:{size:13,weight:'bold'}
+          }
+        },
+        y:{
+          ticks:{color:'#475569',callback:v=>'৳'+v.toLocaleString()},
+          grid:{color:'rgba(51,65,85,0.3)'}
+        }
+      },
+      plugins:{
+        zoom:{
+          limits:{x:{min:0,max:sortedOffsets.length-1,minRange:3}},
+          pan:{enabled:true,mode:'x',threshold:2},
+          zoom:{wheel:{enabled:true,speed:0.08},pinch:{enabled:true},mode:'x'}
+        }
+      },
+      animation:{duration:300}
+    }
+  });
+}
+
+function updateCards(c,hist,pred){
+  const last=hist[hist.length-1];
+  const prev=hist.length>1?hist[hist.length-2]:last;
+  const p7=pred.length>=7?pred[6]:null;
+  const p90=pred[pred.length-1]||null;
+
+  document.getElementById('cardPrice').textContent=last?'৳'+last.avg.toLocaleString():'—';
+  const ch=last&&prev?last.avg-prev.avg:0;
+  const chEl=document.getElementById('cardChange');
+  chEl.textContent=changeStr(last?.avg,prev?.avg);
+  chEl.className='card-change '+changeClass(last?.avg,prev?.avg);
+
+  document.getElementById('card7d').textContent=p7?'~৳'+p7.avg.toLocaleString():'—';
+  const ch7=document.getElementById('card7dChange');
+  ch7.textContent=changeStr(p7?.avg,last?.avg);
+  ch7.className='card-change '+changeClass(p7?.avg,last?.avg);
+
+  document.getElementById('card90d').textContent=p90?'~৳'+p90.avg.toLocaleString():'—';
+  const ch90=document.getElementById('card90dChange');
+  ch90.textContent=changeStr(p90?.avg,last?.avg);
+  ch90.className='card-change '+changeClass(p90?.avg,last?.avg);
+
+  document.getElementById('cardMinMax').textContent=last?`৳${last.min.toLocaleString()} / ৳${last.max.toLocaleString()}`:'—';
+  document.getElementById('cardSpread').textContent=last?`Spread: ৳${last.max-last.min}`:'—';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TABLE
+// ═══════════════════════════════════════════════════════════════════
+function renderTable(filter=''){
+  const tbody=document.getElementById('tableBody');
+  const fl=filter.toLowerCase();
+  let html='';
+
+  COMMODITIES.forEach(c=>{
+    if(fl && !c.name.toLowerCase().includes(fl) && !c.en.toLowerCase().includes(fl)) return;
+    const{hist,pred}=DATA[c.name];
+    const today=hist[hist.length-1];
+    const sel=c.name===selectedProduct;
+
+    html+=`<tr class="${sel?'selected':''}" data-name="${c.name}">`;
+    html+=`<td class="sticky-col"><div class="prod-name">${c.en}</div><div class="prod-bn">${c.name}</div></td>`;
+    html+=`<td style="color:var(--text2)">${c.unit}</td>`;
+    html+=`<td style="font-weight:700;color:var(--gold);background:rgba(251,191,36,.04)">${today?today.avg:'—'}</td>`;
+
+    for(let i=0;i<7;i++){
+      const p=pred[i];
+      if(p&&today){
+        const d=p.avg-today.avg;
+        const cls=d>0?'up':d<0?'down':'neutral';
+        html+=`<td class="${cls}">${p.avg}</td>`;
+      } else {
+        html+=`<td style="color:var(--text3)">—</td>`;
+      }
+    }
+
+    const p7=pred.length>=7?pred[6]:null;
+    if(p7&&today){
+      const d=p7.avg-today.avg;
+      const pct=today.avg?((d/today.avg)*100).toFixed(1):0;
+      const cls=d>0?'up':d<0?'down':'neutral';
+      const sign=d>=0?'+':'';
+      html+=`<td class="${cls}" style="font-weight:600">${sign}${Math.round(d)} (${sign}${pct}%)</td>`;
+    } else {
+      html+=`<td style="color:var(--text3)">—</td>`;
+    }
+    html+=`</tr>`;
+  });
+
+  tbody.innerHTML=html;
+
+  // Click handlers
+  tbody.querySelectorAll('tr').forEach(tr=>{
+    tr.addEventListener('click',()=>{
+      selectedProduct=tr.dataset.name;
+      renderChart();
+      renderTable(document.getElementById('searchInput').value);
+      document.getElementById('productSelect').value=selectedProduct;
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// UI SETUP
+// ═══════════════════════════════════════════════════════════════════
+function updateUI(){
+  // Period buttons
+  document.querySelectorAll('#periodBtns .ctrl-btn').forEach(btn=>{
+    const isActive=btn.dataset.period===currentPeriod && !overlayOn;
+    const isActiveOverlay=btn.dataset.period===currentPeriod && overlayOn;
+    btn.classList.toggle('active',isActive);
+    btn.classList.toggle('overlay-active',isActiveOverlay);
+  });
+
+  // Overlay button
+  const ob=document.getElementById('overlayBtn');
+  ob.textContent='Overlay';
+  ob.classList.toggle('overlay-active',overlayOn);
+
+  // Nav group
+  const ng=document.getElementById('navGroup');
+  ng.style.display=(overlayOn && currentPeriod!=='ALL')?'flex':'none';
+  document.getElementById('periodLabel').textContent=getPeriodName(currentPeriod,periodIndex);
+
+  // Disable nav buttons at boundaries
+  document.getElementById('navLeft').disabled=false;
+  document.getElementById('navRight').disabled=false;
+}
+
+function init(){
+  // Populate product dropdown
+  const sel=document.getElementById('productSelect');
+  COMMODITIES.forEach(c=>{
+    const opt=document.createElement('option');
+    opt.value=c.name;
+    opt.textContent=c.en+' — '+c.name;
+    sel.appendChild(opt);
+  });
+  sel.value=selectedProduct;
+  sel.addEventListener('change',()=>{
+    selectedProduct=sel.value;
+    renderChart();
+    renderTable(document.getElementById('searchInput').value);
+  });
+
+  // Period buttons
+  document.querySelectorAll('#periodBtns .ctrl-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      currentPeriod=btn.dataset.period;
+      // Reset period index to current for overlay
+      if(overlayOn){
+        if(currentPeriod==='1M') periodIndex=TODAY.getMonth();
+        else if(currentPeriod==='3M') periodIndex=Math.floor(TODAY.getMonth()/3);
+        else if(currentPeriod==='6M') periodIndex=Math.floor(TODAY.getMonth()/6);
+        else periodIndex=0;
+      }
+      updateUI();
+      renderChart();
+    });
+  });
+
+  // Overlay toggle
+  document.getElementById('overlayBtn').addEventListener('click',()=>{
+    overlayOn=!overlayOn;
+    if(overlayOn && currentPeriod==='ALL') currentPeriod='1M';
+    if(overlayOn){
+      if(currentPeriod==='1M') periodIndex=TODAY.getMonth();
+      else if(currentPeriod==='3M') periodIndex=Math.floor(TODAY.getMonth()/3);
+      else if(currentPeriod==='6M') periodIndex=Math.floor(TODAY.getMonth()/6);
+      else periodIndex=0;
+    }
+    updateUI();
+    renderChart();
+  });
+
+  // Nav buttons
+  document.getElementById('navLeft').addEventListener('click',()=>{
+    const max=getMaxPeriodIndex(currentPeriod);
+    periodIndex--;
+    if(periodIndex<0) periodIndex=max;
+    updateUI();
+    renderChart();
+  });
+  document.getElementById('navRight').addEventListener('click',()=>{
+    const max=getMaxPeriodIndex(currentPeriod);
+    periodIndex++;
+    if(periodIndex>max) periodIndex=0;
+    updateUI();
+    renderChart();
+  });
+
+  // Checkboxes
+  document.getElementById('chkPred').addEventListener('change',e=>{
+    showPred=e.target.checked;
+    renderChart();
+  });
+  document.getElementById('chkRange').addEventListener('change',e=>{
+    showRange=e.target.checked;
+    renderChart();
+  });
+
+  // Search
+  document.getElementById('searchInput').addEventListener('input',e=>{
+    renderTable(e.target.value);
+  });
+
+  // Reset zoom button
+  document.getElementById('resetZoom').addEventListener('click',()=>{
+    if(chart) chart.resetZoom();
+  });
+  // Double-click to reset zoom
+  document.getElementById('mainChart').addEventListener('dblclick',()=>{
+    if(chart) chart.resetZoom();
+  });
+
+  // Keyboard navigation
+  document.addEventListener('keydown',e=>{
+    if(!overlayOn || currentPeriod==='ALL') return;
+    if(e.key==='ArrowLeft'){
+      document.getElementById('navLeft').click();
+      e.preventDefault();
+    } else if(e.key==='ArrowRight'){
+      document.getElementById('navRight').click();
+      e.preventDefault();
+    }
+  });
+
+  updateUI();
+  renderChart();
+  renderTable();
+}
+
+init();
+</script>
+</body>
+</html>
