@@ -1,10 +1,10 @@
 {
   "last_check": "2026-03-25",
   "status": "updated",
-  "data_through": "2026-05-12",
-  "last_run": "2026-05-12T20:27:14.369092",
-  "last_update": "2026-05-12",
-  "new_dates_added": 2,
-  "total_dates": 1262,
-  "last_retrain": "2026-05-12"
+  "data_through": "2026-05-13",
+  "last_run": "2026-05-13T20:29:46.544699",
+  "last_update": "2026-05-13",
+  "new_dates_added": 1,
+  "total_dates": 1263,
+  "last_retrain": "2026-05-13"
 }
