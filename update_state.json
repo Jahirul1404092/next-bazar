@@ -1,10 +1,10 @@
 {
   "last_check": "2026-03-25",
   "status": "updated",
-  "data_through": "2026-06-19",
-  "last_run": "2026-06-19T20:26:59.589562",
-  "last_update": "2026-06-19",
+  "data_through": "2026-06-20",
+  "last_run": "2026-06-20T20:13:21.326954",
+  "last_update": "2026-06-20",
   "new_dates_added": 1,
-  "total_dates": 1293,
-  "last_retrain": "2026-06-19"
+  "total_dates": 1294,
+  "last_retrain": "2026-06-20"
 }
